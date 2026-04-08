@@ -101,11 +101,20 @@
                         </div>
                     </div>
 
-                    <div class="space-y-1">
-                        <label class="text-sm font-semibold text-slate-700">Ground & Exams (KES)</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-2.5 text-slate-400 text-sm">KSh</span>
-                            <input type="number" id="fixedCosts" value="150000" class="w-full pl-12 p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-sm font-semibold text-slate-700">Other Costs</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-slate-400 text-[10px]">KSh</span>
+                                <input type="number" id="fixedCosts" value="150000" class="w-full pl-9 p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-semibold text-slate-700">Down Payment</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-slate-400 text-[10px]">KSh</span>
+                                <input type="number" id="downPayment" value="0" class="w-full pl-9 p-2.5 bg-blue-50 border border-blue-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-blue-700">
+                            </div>
                         </div>
                     </div>
 
@@ -122,9 +131,13 @@
 
             <!-- Total Budget Summary -->
             <section class="bg-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
-                <p class="text-slate-400 text-sm font-medium mb-1 uppercase tracking-tighter">Total Estimated Investment</p>
-                <h3 id="displayTotalCost" class="text-3xl font-bold mb-4">KSh 0</h3>
+                <p class="text-slate-400 text-sm font-medium mb-1 uppercase tracking-tighter">Remaining Balance to Pay</p>
+                <h3 id="displayTotalCost" class="text-3xl font-bold mb-4 text-emerald-400">KSh 0</h3>
                 <div class="space-y-3">
+                    <div class="flex justify-between text-sm py-2 border-t border-white/10">
+                        <span class="text-slate-400">Gross Project Total</span>
+                        <span id="displayGrossTotal" class="font-bold">KSh 0</span>
+                    </div>
                     <div class="flex justify-between text-sm py-2 border-t border-white/10">
                         <span class="text-slate-400">Timeframe</span>
                         <span id="displayTimeframe" class="font-bold">0 Months</span>
@@ -218,9 +231,11 @@
             currentHours: document.getElementById('currentHours'),
             costPerHour: document.getElementById('costPerHour'),
             fixedCosts: document.getElementById('fixedCosts'),
+            downPayment: document.getElementById('downPayment'),
             bufferPercent: document.getElementById('bufferPercent'),
             bufferValue: document.getElementById('bufferValue'),
             displayTotalCost: document.getElementById('displayTotalCost'),
+            displayGrossTotal: document.getElementById('displayGrossTotal'),
             displayTimeframe: document.getElementById('displayTimeframe'),
             displayHoursLeft: document.getElementById('displayHoursLeft'),
             targetSavings: document.getElementById('targetSavings'),
@@ -272,6 +287,7 @@
             const currentH = parseFloat(els.currentHours.value) || 0;
             const rate = parseFloat(els.costPerHour.value) || 0;
             const fixed = parseFloat(els.fixedCosts.value) || 0;
+            const down = parseFloat(els.downPayment.value) || 0;
             const buffer = parseFloat(els.bufferPercent.value) || 0;
             const tYear = parseInt(els.targetYear.value);
             const tMonth = parseInt(els.targetMonth.value);
@@ -286,10 +302,12 @@
             // 3. Goals Logic
             const hLeft = Math.max(0, targetH - currentH);
             const hWithBuffer = hLeft * (1 + buffer / 100);
-            const totalProjectCost = (hWithBuffer * rate) + fixed;
+            const grossProjectCost = (hWithBuffer * rate) + fixed;
+            const remainingBalance = Math.max(0, grossProjectCost - down);
 
             // 4. Update UI Display
-            els.displayTotalCost.innerText = formatKES(totalProjectCost);
+            els.displayTotalCost.innerText = formatKES(remainingBalance);
+            els.displayGrossTotal.innerText = formatKES(grossProjectCost);
             els.displayTimeframe.innerText = `${monthsLeft} Months`;
             els.displayHoursLeft.innerText = `${Math.round(hWithBuffer)} hrs`;
             els.bufferValue.innerText = `${buffer}%`;
@@ -297,12 +315,12 @@
 
             // 5. Update Action Plan
             if (currentTimeView === 'monthly') {
-                els.targetSavings.innerText = formatKES(totalProjectCost / monthsLeft);
+                els.targetSavings.innerText = formatKES(remainingBalance / monthsLeft);
                 els.targetHoursToFly.innerText = `${(hWithBuffer / monthsLeft).toFixed(1)} hrs`;
                 els.saveLabel.innerText = 'Savings / Monthly';
                 els.flyLabel.innerText = 'Fly / Monthly';
             } else {
-                els.targetSavings.innerText = formatKES(totalProjectCost / weeksLeft);
+                els.targetSavings.innerText = formatKES(remainingBalance / weeksLeft);
                 els.targetHoursToFly.innerText = `${(hWithBuffer / weeksLeft).toFixed(1)} hrs`;
                 els.saveLabel.innerText = 'Savings / Weekly';
                 els.flyLabel.innerText = 'Fly / Weekly';
@@ -315,7 +333,7 @@
             els.progressBar.style.width = `${prog}%`;
 
             // 7. Render Custom Charts
-            renderCharts(monthsLeft, currentH, hWithBuffer, totalProjectCost, targetH);
+            renderCharts(monthsLeft, currentH, hWithBuffer, grossProjectCost, targetH);
         }
 
         function renderCharts(months, startH, totalH, totalCost, targetGoal) {
@@ -356,7 +374,7 @@
         // --- INPUT HANDLING ---
 
         function setupInputListeners() {
-            const inputs = ['targetHours', 'currentHours', 'costPerHour', 'fixedCosts', 'bufferPercent'];
+            const inputs = ['targetHours', 'currentHours', 'costPerHour', 'fixedCosts', 'downPayment', 'bufferPercent'];
             inputs.forEach(id => {
                 document.getElementById(id).addEventListener('input', (e) => {
                     // Remove leading zeros automatically
